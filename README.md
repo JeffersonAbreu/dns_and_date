@@ -1,19 +1,3 @@
-Claro! Vou criar um **`README.md`** completo e bem estruturado para o seu projeto. Ele vai incluir:
-
-- Descrição do projeto
-- Funcionalidades principais
-- Estrutura de arquivos
-- Como configurar e rodar
-- Como usar o menu interativo
-- Requisitos
-- Exemplo de configuração YAML
-- Licença
-
----
-
-## 📄 README.md
-
-```markdown
 # DNS & System Service Manager
 
 > Ferramenta em Python para gerenciar configurações de rede, serviços systemd e conexão à internet.
