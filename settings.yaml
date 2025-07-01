@@ -1,0 +1,6 @@
+dns_servers:
+  - 8.8.8.8
+  - 1.1.1.1
+  - 8.8.4.4
+ping_host: www.google.com.br
+resolv_conf: /etc/resolv.conf
