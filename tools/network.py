@@ -1,3 +1,6 @@
+import socket
+import fcntl
+import struct
 import os
 import getpass
 import subprocess
@@ -191,6 +194,94 @@ def _check_content_matches(expected_dns: List[str], content: str) -> bool:
 def is_apt_process(line: str) -> bool:
     return any(keyword in line for keyword in ["apt-get", "apt-cache", "apt install", "/usr/lib/apt"])
 
+
+def get_default_interface_and_ip():
+    """
+    Retorna informações sobre a interface de saída padrão:
+    - Interface (ex: eth0)
+    - IP local atribuído
+    - Gateway padrão
+    """
+    def list_network_interfaces():
+        """
+        Lista todas as interfaces de rede disponíveis no sistema.
+        """
+        try:
+            return os.listdir("/sys/class/net")
+        except FileNotFoundError:
+            return []
+    
+    def get_all_ips():
+        """
+        Retorna um dicionário com interfaces e seus IPs.
+        """
+        cmd = ["ip", "-br", "addr", "show"]
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
+        data = {}
+
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if len(parts) < 3:
+                continue
+            intf = parts[0]
+            ip = parts[2].split("/")[0] if '/' in parts[2] else None
+            data[intf] = ip
+
+        return data
+
+    def get_gateway():
+        """Retorna o gateway padrão."""
+        data = {}
+        try:
+            result = subprocess.run(["ip", "route"],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
+            result = [line.strip() for line in result.stdout.splitlines() if line.startswith("default")]
+            result = result[0] if result else None
+        except:
+            return {}
+        if result:
+            try: 
+                iface = [part.strip() for part in result.split() if part in list_network_interfaces()]
+                iface = iface[0] if iface else None
+                if iface:
+                    data["interface"]=iface
+                    try:
+                        ip = [ip for ifcon, ip in get_all_ips().items() if iface == ifcon]
+                        ip = ip[0] if ip else None
+                    except:
+                        ip = get_ip_address(iface)
+                    if ip:
+                        data["ip"]=ip
+                        try:
+                            class_ip = ip.split('.')[-1] if '.' in ip else ip
+                            class_ip = ip.rstrip(class_ip) if class_ip != ip else class_ip
+                            gw = [part for part in result.split() if class_ip in part]
+                            if gw: data["gateway"]=gw[0]
+                        except:
+                            pass
+            except Exception:
+                pass            
+        return data
+
+    def get_ip_address(ifname):
+        """Retorna o IP da interface."""
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            ip = socket.inet_ntoa(fcntl.ioctl(
+                s.fileno(),
+                0x8915,  # SIOCGIFADDR
+                struct.pack('256s', ifname[:15].encode('utf-8'))
+            )[20:24])
+            return ip
+        except Exception:
+            return None
+
+    # Busca gateway e interface
+    gw_info = get_gateway()
+    if not gw_info:
+        return {"error": "No default route found"}
+
+    return gw_info
+    
 class NetworkManager:
     def __init__(
         self,
@@ -243,7 +334,12 @@ class NetworkManager:
         """
         Checks internet connection and handles common issues.
         """
-        print("[INFO] Checking initial internet connection.")
+        info = get_default_interface_and_ip()
+        print("[INFO] Default Network Interface Info:")
+        for k, v in info.items():
+            print(f" - {k}: {v}")
+            
+        print("\n[INFO] Checking initial internet connection.")
         hosts=[self.ping_host] + self.dns_servers        
         print("[INFO] Testing DNS servers...\n")
         results = []
