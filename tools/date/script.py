@@ -55,7 +55,7 @@ def sync_with_ntp(servers):
             subprocess.run(["sudo", "ntpdate", "-u", server], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
             print(f"[INFO] Synchronized with server {server}")
             return True
-        except subprocess.CalledProcessERRORr:
+        except subprocess.CalledProcessError:
             print(f"[WARN] Error when syncing with {server}")
     return False
 
